@@ -85,6 +85,72 @@ If you update something on location 2, then all updates you did on location 1 wi
 
 A process is cpaable of hosting a replica of an object or data
 - permanent replicas: process/machine always havinga replica
+deafult replicas that are always there
 - server-initated replica: process that can dynamically host a replica on request of another server inthe data store
+useful on a burst of incoming traffic, set up some temporary replicas
 - client-inititaed replica: process that can dyncamilly host a replica on reqeust of cleint (clien caceh)
+local cache on the client, server _may_ assist in keeping it consistent, but does not have to
 
+# Protocol choices
+What information is disseminated?
+
+    Active (the operation): Send the command (e.g., "Add 5 to X").
+
+    Passive (the resulting state): Send the actual new value (e.g., "X is now 15").
+
+    Notification: Send a simple "I have been updated" ping.
+
+Which party takes the initiative?
+
+    Push-based (Server-based): The server pushes updates to replicas.
+
+    Pull-based (Client-based): The replica/client pulls updates from the server.
+
+What communication primitives are used?
+
+    Unicast (one-to-one), Multicast (one-to-many), or Gossiping (epidemic spreading).
+
+When is completion reported to the client?
+
+    Immediate: As soon as one server gets it.
+
+    After atomic execution: When all servers get it (e.g., Two-Phase Commit).
+
+    Quorum-based: When a majority (e.g., 3 out of 5) get it.
+
+(Takeaway: Your choices here dictate the consistency model you achieve).
+
+
+# Local-read primary-write
+
+writse are centralized, reads are distributed. One server is primary, the rest are backups. 
+
+Read path: Client sends request to closest (potentially backup) server. This repospodn with its copy. Fast, but potentailly stale.
+
+Write path:
+1. Client send write to local server
+2. Local server forward to primary server
+3. Tell backups to update
+4. Acknkolwedge update
+5. Acknolowege write complete to client
+
+# Local read local write
+Primary status is now per data item, and can move.
+
+Read path: same
+Write path:
+1. Write request to local server X
+2. Move item x ot new primary X 
+3. Ack write completed to client
+4. Tell backups to update
+5. Ack update
+
+during the handoff, both the old and new primary server may receive writes. It needs to guess if it can write. 
+
+## Quorum based protocols
+$N$ replicas
+
+Do a mojority vote for operations. Make read and write quorums $N_r$ and $N_w$ s.t.
+
+1. $N_r + N_w > N$: prevents read-write conflicts: if $N_w$ have the latest write, and read from $N_r$  nodes, at least one node reads the latest value.
+2. $N_w > N/2$: prevents write-write conflicts: A majority is needed to commit a write, so two concurrent writes cannot both get a majority.
